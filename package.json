@@ -1,0 +1,23 @@
+{
+  "name": "ai-powered-interview-platform-",
+  "version": "1.0.0",
+  "description": "An AI-powered platform to help users practice interviews and receive intelligent feedback.\r Project setup is currently in progress.",
+  "main": "db.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NIYATI986/AI-powered-interview-platform-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/NIYATI986/AI-powered-interview-platform-/issues"
+  },
+  "homepage": "https://github.com/NIYATI986/AI-powered-interview-platform-#readme"
+}
