@@ -4,7 +4,7 @@ const {
   generateQuestions,
   evaluateAnswer,
   generateOverallFeedback,
-} = require("../utils/aiService");
+} = require("../services/aiService");
 
 // @route   GET /api/interviews/roles
 // @access  Private
