@@ -1,161 +1,148 @@
-import {useState} from "react";
+import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import Card from '../components/Card'
+import Button from '../components/Button'
+import Input from '../components/Input'
 
-import Input from "../components/Input";
-import Button from "../components/Button";
-import Card from "../components/Card";
+const Signup = () => {
+  const navigate = useNavigate()
+
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  })
+
+  const [error, setError] = useState('')
+
+  const handleChange = (e) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value
+    })
+  }
+
+  const handleSignup = () => {
+
+    if (!form.email.includes('@')) {
+      setError('Please enter a valid email address')
+      return
+    }
+
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    // Signup successful
+    navigate('/interview/track')
+  }
 
 
-function Signup(){
+  return (
+    <div className="auth-page">
+      <div className="auth-container">
+
+        <Card className="auth-card">
+
+          <div className="auth-header">
+            <h1 className="auth-title">Create Account</h1>
+            <p className="auth-subtitle">
+              Start your interview preparation journey
+            </p>
+          </div>
 
 
-const [form,setForm]=useState({
+          <form 
+            className="auth-form"
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleSignup()
+            }}
+          >
 
-name:"",
-email:"",
-password:""
+            <Input
+              label="Full Name"
+              name="name"
+              type="text"
+              placeholder="John Doe"
+              value={form.name}
+              onChange={handleChange}
+              required
+            />
 
-});
+
+            <Input
+              label="Email Address"
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleChange}
+              required
+            />
 
 
-const [error,setError]=useState("");
+            <Input
+              label="Password"
+              name="password"
+              type="password"
+              placeholder="Create a password"
+              value={form.password}
+              onChange={handleChange}
+              required
+            />
 
 
+            <Input
+              label="Confirm Password"
+              name="confirmPassword"
+              type="password"
+              placeholder="Confirm your password"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              required
+            />
 
-const handleChange=(e)=>{
 
-setForm({
+            {error && (
+              <p className="error-message">
+                {error}
+              </p>
+            )}
 
-...form,
 
-[e.target.name]:e.target.value
+            <Button
+              type="submit"
+              variant="primary"
+              fullWidth
+              size="large"
+            >
+              Create Account
+            </Button>
 
-})
+          </form>
 
+
+          <p className="auth-footer">
+            Already have an account?
+            <Link to="/login" className="auth-link">
+              Sign in
+            </Link>
+          </p>
+
+
+        </Card>
+
+      </div>
+    </div>
+  )
 }
 
-
-
-const submit=(e)=>{
-
-e.preventDefault();
-
-
-if(
-!form.name ||
-!form.email ||
-!form.password
-){
-
-setError("Fill all fields");
-
-return;
-
-}
-
-
-if(form.password.length<6){
-
-setError("Password must be 6 characters");
-
-return;
-
-}
-
-
-setError("");
-
-alert("Account created");
-
-
-}
-
-
-
-return(
-
-<div className="center">
-
-
-<Card>
-
-
-<h1>
-Create Account
-</h1>
-
-
-<form onSubmit={submit}>
-
-
-<Input
-
-name="name"
-
-placeholder="Name"
-
-value={form.name}
-
-onChange={handleChange}
-
-/>
-
-
-
-<Input
-
-name="email"
-
-placeholder="Email"
-
-value={form.email}
-
-onChange={handleChange}
-
-/>
-
-
-
-<Input
-
-name="password"
-
-type="password"
-
-placeholder="Password"
-
-value={form.password}
-
-onChange={handleChange}
-
-/>
-
-
-{
-error &&
-<p className="error">
-{error}
-</p>
-}
-
-
-
-<Button>
-Signup
-</Button>
-
-
-</form>
-
-
-</Card>
-
-
-</div>
-
-)
-
-
-}
-
-
-export default Signup;
+export default Signup
