@@ -32,6 +32,20 @@ const tracks = [
     icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chart-no-axes-combined-icon lucide-chart-no-axes-combined"><path d="M12 16v5"/><path d="M16 14.639V21"/><path d="M20 10.656V21"/><path d="m22 3-8.646 8.646a.5.5 0 0 1-.708 0L9.354 8.354a.5.5 0 0 0-.707 0L2 15"/><path d="M4 18.463V21"/><path d="M8 14.656V21"/></svg>,
     description: 'SQL, Python, Statistics, Data Visualization',
     difficulty: 'Intermediate'
+  },
+  {
+    id: 'devops',
+    title: 'DevOps Engineer',
+    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-server-cog"><path d="M5 4h14v6H5z"/><path d="M5 14h14v6H5z"/><path d="M9 7h.01"/><path d="M9 17h.01"/><path d="M17 9l1.5 1.5L20 9"/><path d="M17 19l1.5 1.5L20 19"/></svg>,
+    description: 'Docker, Kubernetes, CI/CD, AWS, Linux',
+    difficulty: 'Advanced'
+  },
+  {
+    id: 'mobile',
+    title: 'Mobile App Developer',
+    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-smartphone"><rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/></svg>,
+    description: 'Flutter, React Native, Android, iOS',
+    difficulty: 'Intermediate'
   }
 ]
 
