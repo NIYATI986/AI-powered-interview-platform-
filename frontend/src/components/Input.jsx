@@ -1,71 +1,38 @@
-import { useState } from "react";
+// frontend/src/components/Input.jsx
+import React from 'react'
 
-
-function Input({
-    type="text",
-    placeholder,
-    value,
-    onChange,
-    name
-}){
-
-const [showPassword,setShowPassword] = useState(false);
-
-
-const inputType = 
-type === "password" && showPassword
-? "text"
-: type;
-
-
-return(
-
-<div className="input-wrapper">
-
-<input
-
-className="input"
-
-type={inputType}
-
-placeholder={placeholder}
-
-value={value}
-
-name={name}
-
-onChange={onChange}
-
-/>
-
-
-{
-type==="password" &&
-
-<button
-
-type="button"
-
-className="show-btn"
-
-onClick={()=>setShowPassword(!showPassword)}
-
->
-
-{
-showPassword ? "Hide" : "Show"
+const Input = ({
+  label,
+  type = 'text',
+  placeholder,
+  value,
+  onChange,
+  error,
+  required = false,
+  disabled = false,
+  className = '',
+  ...props
+}) => {
+  return (
+    <div className={`input-group ${className}`}>
+      {label && (
+        <label className="input-label">
+          {label}
+          {required && <span className="required-star">*</span>}
+        </label>
+      )}
+      <input
+        type={type}
+        className={`input-field ${error ? 'input-error' : ''}`}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        {...props}
+      />
+      {error && <span className="input-error-text">{error}</span>}
+    </div>
+  )
 }
 
-</button>
-
-}
-
-
-</div>
-
-)
-
-}
-
-
-export default Input;
+export default Input

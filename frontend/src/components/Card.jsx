@@ -1,32 +1,16 @@
-import {motion} from "framer-motion";
+// frontend/src/components/Card.jsx
+import React from 'react'
 
-
-function Card({children}){
-
-
-return(
-
-<motion.div
-
-className="card"
-
-whileHover={{
-scale:1.05
-}}
-
-transition={{
-duration:0.2
-}}
-
->
-
-{children}
-
-</motion.div>
-
-)
-
+const Card = ({ children, className = '', hoverable = false, onClick }) => {
+  return (
+    <div 
+      className={`card ${hoverable ? 'card-hoverable' : ''} ${className}`}
+      onClick={onClick}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
+      {children}
+    </div>
+  )
 }
 
-
-export default Card;
+export default Card
