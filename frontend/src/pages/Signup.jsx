@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import Card from '../components/Card'
 import Button from '../components/Button'
 import Input from '../components/Input'
+import API from "../api/axios";
 
 const Signup = () => {
   const navigate = useNavigate()
@@ -23,8 +24,8 @@ const Signup = () => {
     })
   }
 
-  const handleSignup = () => {
-
+  const handleSignup = async() => {
+   console.log("Signup button clicked");
     if (!form.email.includes('@')) {
       setError('Please enter a valid email address')
       return
@@ -41,8 +42,29 @@ const Signup = () => {
     }
 
     // Signup successful
-    navigate('/interview/track')
+   try {
+    console.log("before api");
+    const res = await API.post("/auth/signup", {
+        name: form.name,
+        email: form.email,
+        password: form.password
+    });
+
+    console.log("response: ", res.data);
+
+    localStorage.setItem("token", res.data.token);
+
+    navigate("/interview/track");
+
   }
+  catch(err){
+   console.log(err);
+    setError(
+        err.response?.data?.message || "Signup Failed"
+    );
+
+}
+}
 
 
   return (

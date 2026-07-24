@@ -31,6 +31,12 @@ const signup = async (req, res) => {
 
     // Password hashing happens automatically via the pre-save hook on the User model
     const user = await User.create({ name, email, password });
+    console.log("User Created:", user);
+
+
+    const count = await User.countDocuments();
+    console.log("Total Users:", count);
+
 
     const token = generateToken(user._id);
 
@@ -46,6 +52,7 @@ const signup = async (req, res) => {
       },
     });
   } catch (err) {
+    console.error("Signup Error:", err);
     return res.status(500).json({
       success: false,
       message: "Signup failed",
@@ -98,6 +105,8 @@ const login = async (req, res) => {
       },
     });
   } catch (err) {
+
+    
     return res.status(500).json({
       success: false,
       message: "Login failed",
