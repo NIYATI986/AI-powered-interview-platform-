@@ -2,7 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import Navbar from './components/Navbar'
 import LandingNavbar from './components/LandingNavbar'
-
+import ProtectedRoute from "./components/ProtectedRoute";
 import Landing from './pages/Landing'
 import Home from './pages/Home'
 import Login from './pages/Login'
@@ -47,10 +47,32 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
 
-            <Route path="/dashboard" element={<Home />} />
+           
+            <Route  path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                  <Home />
+                  </ProtectedRoute>
+                }
+            />
 
-            <Route path="/interview/track" element={<InterviewTrack />} />
-            <Route path="/interview/:id" element={<Questions />} />
+            <Route path="/interview/track"
+                element={
+                  <ProtectedRoute>
+                  <InterviewTrack />
+                  </ProtectedRoute>
+                }
+            />
+
+            <Route path="/interview/:id"
+                element={
+                  <ProtectedRoute>
+                  <Questions />
+                  </ProtectedRoute>
+                }
+            />
+
+
           </Routes>
         </main>
       </div>

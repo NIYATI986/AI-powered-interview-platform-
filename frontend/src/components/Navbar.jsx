@@ -1,10 +1,20 @@
 // frontend/src/components/Navbar.jsx (updated)
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 
 
 const Navbar = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+
+  navigate("/login");
+};
+
+
   return (
     <nav className="navbar">
       <div className="navbar-container">
@@ -15,7 +25,19 @@ const Navbar = () => {
         <div className="navbar-links">
           <Link to="/dashboard" className="nav-link">Dashboard</Link>
           <Link to="/interview/track" className="nav-link">Start Interview</Link>
-          <Link to="/" className="nav-link">Logout</Link>
+          <button
+                  className="nav-link"
+                  onClick={handleLogout}
+                  style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "inherit",
+                      font: "inherit",
+                    }}
+                  >
+                 Logout
+              </button>
         </div>
       </div>
     </nav>
