@@ -3,40 +3,33 @@ import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import Card from '../components/Card'
 import Button from '../components/Button'
-import { getHistory, getErrorMessage } from '../services/interviewService'
+import { getSessionDetails, getErrorMessage } from '../services/interviewService'
 
 const Transcript = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Home.jsx passes the session via router state when navigating here, so in
-  // the common case we avoid an extra network call. If the page is opened
-  // directly (e.g. refresh / shared link), fall back to the history list —
-  // there's no dedicated get-session-by-id endpoint, and history already
-  // returns full session documents including the questions array.
+  // Home.jsx may pass the session via router state to avoid an extra call,
+  // but GET /interviews/:sessionId is a real endpoint now, so we always have
+  // a reliable fallback (e.g. on refresh or a direct link).
   const [session, setSession] = useState(location.state?.session || null)
   const [loading, setLoading] = useState(!location.state?.session)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!session) {
-      loadFromHistory()
+      loadSession()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  const loadFromHistory = async () => {
+  const loadSession = async () => {
     setLoading(true)
     setError('')
     try {
-      const data = await getHistory()
-      const found = (data.sessions || []).find((s) => s._id === id)
-      if (!found) {
-        setError('Transcript not found')
-      } else {
-        setSession(found)
-      }
+      const data = await getSessionDetails(id)
+      setSession(data.session)
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load transcript'))
     } finally {

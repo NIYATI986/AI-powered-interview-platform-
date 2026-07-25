@@ -31,7 +31,6 @@ router.get("/:sessionId/result", getResult);
 router.get("/:sessionId/progress", getProgress);
 router.post("/:sessionId/answer", submitAnswer);
 router.post("/:sessionId/finish", finishInterview);
-router.get("/:sessionId/progress", getProgress);
 router.get("/:sessionId", getSessionDetails);
 
 module.exports = router;

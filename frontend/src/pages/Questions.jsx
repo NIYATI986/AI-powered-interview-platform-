@@ -4,8 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Card from '../components/Card'
 import Button from '../components/Button'
 import {
-  getProgress,
-  getCurrentQuestion,
+  getSessionDetails,
   submitAnswer,
   finishInterview,
   getErrorMessage,
@@ -19,20 +18,19 @@ const Questions = () => {
   const [error, setError] = useState('')
 
   const [roleTitle, setRoleTitle] = useState('')
-  const [questionIndex, setQuestionIndex] = useState(0)
+  const [questionNumber, setQuestionNumber] = useState(1)
   const [totalQuestions, setTotalQuestions] = useState(0)
   const [currentQuestion, setCurrentQuestion] = useState('')
   const [nextQuestionText, setNextQuestionText] = useState(null)
-  const [isLastAnswer, setIsLastAnswer] = useState(false)
+  const [sessionEnded, setSessionEnded] = useState(false)
 
   const [answer, setAnswer] = useState('')
-  const [answers, setAnswers] = useState([])
   const [feedback, setFeedback] = useState(null) // { evaluation, score }
   const [submitting, setSubmitting] = useState(false)
   const [advancing, setAdvancing] = useState(false)
 
   const [completed, setCompleted] = useState(false)
-  const [results, setResults] = useState(null) // { overallScore, overallFeedback, questionBreakdown }
+  const [results, setResults] = useState(null) // { overallScore, overallFeedback, session }
 
   useEffect(() => {
     loadSession()
@@ -43,17 +41,17 @@ const Questions = () => {
     setLoading(true)
     setError('')
     try {
-      const progress = await getProgress(sessionId)
-      setRoleTitle(progress.role)
-      setTotalQuestions(progress.totalQuestions)
+      const { session } = await getSessionDetails(sessionId)
+      setRoleTitle(session.role?.title)
+      setTotalQuestions(session.role?.totalQuestions || session.questions.length)
 
-      if (progress.status === 'completed') {
-        await loadResults()
+      if (session.status === 'completed') {
+        setResults({ overallScore: session.overallScore, overallFeedback: session.overallFeedback, session })
+        setCompleted(true)
       } else {
-        const q = await getCurrentQuestion(sessionId)
-        setCurrentQuestion(q.question)
-        setQuestionIndex(q.questionIndex)
-        setTotalQuestions(q.totalQuestions)
+        const current = session.questions[session.currentQuestionIndex]
+        setCurrentQuestion(current.questionText)
+        setQuestionNumber(session.currentQuestionIndex + 1)
       }
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load this interview session'))
@@ -78,9 +76,8 @@ const Questions = () => {
     try {
       const res = await submitAnswer(sessionId, answer)
       setFeedback({ evaluation: res.evaluation, score: res.score })
-      setAnswers((prev) => [...prev, answer])
       setNextQuestionText(res.nextQuestion)
-      setIsLastAnswer(res.isComplete)
+      setSessionEnded(res.sessionEnded)
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to submit your answer'))
     } finally {
@@ -89,7 +86,7 @@ const Questions = () => {
   }
 
   const handleContinue = async () => {
-    if (isLastAnswer) {
+    if (sessionEnded) {
       setAdvancing(true)
       setError('')
       try {
@@ -102,7 +99,7 @@ const Questions = () => {
       return
     }
     setCurrentQuestion(nextQuestionText)
-    setQuestionIndex((i) => i + 1)
+    setQuestionNumber((n) => n + 1)
     setAnswer('')
     setFeedback(null)
   }
@@ -132,7 +129,7 @@ const Questions = () => {
 
   if (completed && results) {
     const scoreOutOf100 = Math.round((results.overallScore || 0) * 10)
-    const breakdown = results.questionBreakdown || []
+    const breakdown = results.session?.questions || []
 
     return (
       <div className="results-page">
@@ -156,14 +153,14 @@ const Questions = () => {
               <div className="results-transcript">
                 <h3>Full Transcript</h3>
                 {breakdown.map((item, index) => (
-                  <Card key={index} className="transcript-item">
+                  <Card key={item._id || index} className="transcript-item">
                     <div className="transcript-question">
                       <span className="q-number">Q{index + 1}</span>
-                      <p>{item.question}</p>
+                      <p>{item.questionText}</p>
                     </div>
                     <div className="transcript-answer">
                       <strong>Your Answer:</strong>
-                      <p>{item.answer || 'No answer provided'}</p>
+                      <p>{item.answerText || 'No answer provided'}</p>
                     </div>
                     <div className="transcript-feedback">
                       <strong>Feedback:</strong>
@@ -193,12 +190,12 @@ const Questions = () => {
       <div className="interview-container">
         <div className="interview-progress">
           <span className="progress-label">
-            Question {questionIndex + 1} of {totalQuestions}
+            Question {questionNumber} of {totalQuestions}
           </span>
           <div className="progress-bar">
             <div
               className="progress-fill"
-              style={{ width: `${((questionIndex + 1) / totalQuestions) * 100}%` }}
+              style={{ width: `${(questionNumber / totalQuestions) * 100}%` }}
             />
           </div>
         </div>
@@ -206,7 +203,7 @@ const Questions = () => {
         <Card className="question-card">
           <div className="question-header">
             <span className="question-role">{roleTitle}</span>
-            <span className="question-number">Q{questionIndex + 1}</span>
+            <span className="question-number">Q{questionNumber}</span>
           </div>
           <div className="question-content">
             <h2>{currentQuestion}</h2>
@@ -224,7 +221,7 @@ const Questions = () => {
             </div>
             <div className="answer-actions">
               <Button variant="primary" onClick={handleContinue} loading={advancing}>
-                {isLastAnswer ? 'See Results' : 'Next Question'}
+                {sessionEnded ? 'See Results' : 'Next Question'}
               </Button>
             </div>
           </Card>
