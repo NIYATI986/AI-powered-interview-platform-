@@ -9,6 +9,7 @@ import Login from './pages/Login'
 import Signup from './pages/Signup'
 import InterviewTrack from './pages/InterviewTrack'
 import Questions from './pages/Questions'
+import Transcript from './pages/Transcript'
 
 import './styles/global.css'
 
@@ -51,6 +52,7 @@ function App() {
 
             <Route path="/interview/track" element={<InterviewTrack />} />
             <Route path="/interview/:id" element={<Questions />} />
+            <Route path="/interview/:id/transcript" element={<Transcript />} />
           </Routes>
         </main>
       </div>

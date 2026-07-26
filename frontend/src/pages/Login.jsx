@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import Card from '../components/Card'
 import Button from '../components/Button'
 import Input from '../components/Input'
+import API from "../api/axios";
+
 
 const Login = () => {
 
@@ -24,7 +26,9 @@ const Login = () => {
   }
 
 
-  const handleLogin = () => {
+  const handleLogin = async() => {
+
+    setError("");
 
     if (!form.email.includes('@')) {
       setError('Enter a valid email')
@@ -39,7 +43,27 @@ const Login = () => {
 
 
     // Login successful
-    navigate('/interview/track')
+   try {
+
+    const res = await API.post("/auth/login", form);
+
+    localStorage.setItem("token", res.data.token);
+
+    localStorage.setItem(
+      "user",
+      JSON.stringify(res.data.user)
+    );
+
+  navigate("/interview/track");
+
+  }
+   catch(err){
+
+    setError(
+        err.response?.data?.message || "Login Failed"
+    );
+
+  }
   }
 
 

@@ -1,29 +1,53 @@
 require("dotenv").config();
 
-
-
 const express = require("express");
 const cors = require("cors");
-const connectDB = require("./db");  
+const cookieParser = require("cookie-parser");
+
+const connectDB = require("./config/db");
+const authRoutes = require("./routes/authRoutes");
+const interviewRoutes = require("./routes/interviewRoutes");
 
 const app = express();
 
-// Connect Database
-connectDB();  
+// Connect to MongoDB
+connectDB();
 
 // Middleware
-app.use(cors());
-app.use(express.json());
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 
-// Health Check
-app.get("/", (req, res) => {
-  res.send("AI Interview Platform Backend");
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+
+// Health check
+app.get("/api/health", (req, res) => {
+  res.send("I'm root");
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "Backend is running",
+// Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/interviews", interviewRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+  });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({
+    success: false,
+    message: "Something went wrong",
   });
 });
 

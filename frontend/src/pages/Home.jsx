@@ -1,38 +1,32 @@
 // frontend/src/pages/Home.jsx
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Card from '../components/Card'
 import Button from '../components/Button'
-
-// Mock data for demonstration
-const mockSessions = [
-  {
-    _id: '1',
-    role: 'Frontend Developer',
-    score: 85,
-    overallSummary: 'Great performance! You showed strong understanding of React concepts and JavaScript fundamentals.',
-    createdAt: '2026-07-15T10:30:00Z',
-  },
-  {
-    _id: '2',
-    role: 'Backend Developer',
-    score: 72,
-    overallSummary: 'Good understanding of backend concepts. Focus more on database optimization.',
-    createdAt: '2026-07-14T15:45:00Z',
-  },
-  {
-    _id: '3',
-    role: 'Data Analyst',
-    score: 93,
-    overallSummary: 'Excellent analytical skills! Strong understanding of statistical concepts.',
-    createdAt: '2026-07-13T09:15:00Z',
-  }
-]
+import { getHistory, getErrorMessage } from '../services/interviewService'
 
 const Home = () => {
   const navigate = useNavigate()
-  const [sessions] = useState(mockSessions)
-  const user = { name: 'Demo User' }
+  const [sessions, setSessions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    loadHistory()
+  }, [])
+
+  const loadHistory = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await getHistory()
+      setSessions(data.sessions || [])
+    } catch (err) {
+      setError(getErrorMessage(err, 'Failed to load interview history'))
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const formatDate = (date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -40,7 +34,7 @@ const Home = () => {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     })
   }
 
@@ -51,21 +45,37 @@ const Home = () => {
     return 'score-low'
   }
 
+  // Backend stores scores on a 0-10 scale; the UI displays 0-100.
+  const toDisplayScore = (score) => (score == null ? null : Math.round(score * 10))
+
+  const completedSessions = sessions.filter((s) => s.overallScore != null)
+  const displayScores = completedSessions.map((s) => toDisplayScore(s.overallScore))
+
+  const handleSessionClick = (session) => {
+    if (session.status === 'completed') {
+      navigate(`/interview/${session._id}/transcript`, { state: { session } })
+    } else {
+      navigate(`/interview/${session._id}`)
+    }
+  }
+
   return (
     <div className="home-page">
       <div className="home-header">
         <div className="home-welcome">
-          <h1 className="home-title">Welcome, {user.name || 'User'}! </h1>
+          <h1 className="home-title">Welcome back!</h1>
           <p className="home-subtitle">Track your interview progress and practice more</p>
         </div>
-        <Button 
-          variant="primary" 
+        <Button
+          variant="primary"
           size="large"
           onClick={() => navigate('/interview/track')}
         >
           Start New Interview
         </Button>
       </div>
+
+      {error && <p className="error-message">{error}</p>}
 
       <div className="home-stats">
         <Card className="stat-card">
@@ -74,17 +84,15 @@ const Home = () => {
         </Card>
         <Card className="stat-card">
           <div className="stat-value">
-            {sessions.length > 0 
-              ? Math.round(sessions.reduce((acc, s) => acc + (s.score || 0), 0) / sessions.length)
+            {displayScores.length > 0
+              ? Math.round(displayScores.reduce((acc, s) => acc + s, 0) / displayScores.length)
               : 0}
           </div>
           <div className="stat-label">Average Score</div>
         </Card>
         <Card className="stat-card">
           <div className="stat-value">
-            {sessions.length > 0 
-              ? Math.max(...sessions.map(s => s.score || 0))
-              : 0}
+            {displayScores.length > 0 ? Math.max(...displayScores) : 0}
           </div>
           <div className="stat-label">Best Score</div>
         </Card>
@@ -92,27 +100,45 @@ const Home = () => {
 
       <div className="home-history">
         <h2 className="section-title">Interview History</h2>
-        <div className="sessions-grid">
-          {sessions.map((session) => (
-            <Card key={session._id} className="session-card" hoverable>
-              <div className="session-header">
-                <span className="session-role">{session.role}</span>
-                <span className={`session-score ${getScoreColor(session.score)}`}>
-                  {session.score}/100
-                </span>
-              </div>
-              <div className="session-date">{formatDate(session.createdAt)}</div>
-              <div className="session-summary">{session.overallSummary?.slice(0, 100)}...</div>
-              <Button
-                variant="outline"
-                size="small"
-                onClick={() => navigate(`/interview/${session._id}`)}
-              >
-                View Transcript
-              </Button>
-            </Card>
-          ))}
-        </div>
+
+        {loading ? (
+          <p className="track-subtitle">Loading history...</p>
+        ) : sessions.length === 0 ? (
+          <p className="track-subtitle">No interviews yet. Start your first one above!</p>
+        ) : (
+          <div className="sessions-grid">
+            {sessions.map((session) => {
+              const displayScore = toDisplayScore(session.overallScore)
+              return (
+                <Card key={session._id} className="session-card" hoverable>
+                  <div className="session-header">
+                    <span className="session-role">{session.role?.title}</span>
+                    {displayScore != null ? (
+                      <span className={`session-score ${getScoreColor(displayScore)}`}>
+                        {displayScore}/100
+                      </span>
+                    ) : (
+                      <span className="session-score">In Progress</span>
+                    )}
+                  </div>
+                  <div className="session-date">{formatDate(session.createdAt)}</div>
+                  <div className="session-summary">
+                    {session.overallFeedback
+                      ? `${session.overallFeedback.slice(0, 100)}...`
+                      : 'Feedback will appear once this interview is completed.'}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="small"
+                    onClick={() => handleSessionClick(session)}
+                  >
+                    {session.status === 'completed' ? 'View Transcript' : 'Resume Interview'}
+                  </Button>
+                </Card>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
