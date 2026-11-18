@@ -1,5 +1,9 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const { isDbConnected } = require("../config/db");
+const memoryStore = require("../utils/memoryStore");
+
+const JWT_SECRET = process.env.JWT_SECRET || "nexora-dev-secret-change-in-production";
 
 // Protect routes - verifies JWT and attaches user to req.user
 const protect = async (req, res, next) => {
@@ -18,9 +22,19 @@ const protect = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-   const user = await User.findById(decoded.id).select("-password");
+    let user;
+    if (isDbConnected()) {
+      user = await User.findById(decoded.id).select("-password");
+    } else {
+      const memUser = memoryStore.findUserById(decoded.id);
+      if (memUser) {
+        const { password, ...safeUser } = memUser;
+        user = safeUser;
+      }
+    }
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -28,7 +42,7 @@ const protect = async (req, res, next) => {
       });
     }
 
-    req.user = user; // full user document (minus password, since not selected)
+    req.user = user;
     next();
   } catch (err) {
     return res.status(401).json({
@@ -38,7 +52,6 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Optional: restrict to specific roles e.g. protectRoles("admin")
 const restrictTo = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {

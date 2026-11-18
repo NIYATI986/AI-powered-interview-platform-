@@ -1,8 +1,8 @@
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
+const { isDbConnected } = require("../config/db");
+const memoryStore = require("../utils/memoryStore");
 
-// @route   POST /api/auth/signup
-// @access  Public
 const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -21,22 +21,26 @@ const signup = async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: "An account with this email already exists",
-      });
+    let user;
+    if (isDbConnected()) {
+      const existingUser = await User.findOne({ email: email.toLowerCase() });
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "An account with this email already exists",
+        });
+      }
+      user = await User.create({ name, email, password });
+    } else {
+      const existingUser = memoryStore.findUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "An account with this email already exists",
+        });
+      }
+      user = await memoryStore.createUser({ name, email, password });
     }
-
-    // Password hashing happens automatically via the pre-save hook on the User model
-    const user = await User.create({ name, email, password });
-    console.log("User Created:", user);
-
-
-    const count = await User.countDocuments();
-    console.log("Total Users:", count);
-
 
     const token = generateToken(user._id);
 
@@ -61,8 +65,6 @@ const signup = async (req, res) => {
   }
 };
 
-// @route   POST /api/auth/login
-// @access  Public
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -74,17 +76,21 @@ const login = async (req, res) => {
       });
     }
 
-    // password field has select:false in the model, so explicitly include it here
-    const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
+    let user;
+    let isMatch = false;
+    if (isDbConnected()) {
+      user = await User.findOne({ email: email.toLowerCase() }).select("+password");
+      if (user) {
+        isMatch = await user.comparePassword(password);
+      }
+    } else {
+      user = memoryStore.findUserByEmail(email);
+      if (user) {
+        isMatch = await memoryStore.comparePassword(user, password);
+      }
     }
 
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
+    if (!user || !isMatch) {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
@@ -105,8 +111,6 @@ const login = async (req, res) => {
       },
     });
   } catch (err) {
-
-    
     return res.status(500).json({
       success: false,
       message: "Login failed",
@@ -115,8 +119,6 @@ const login = async (req, res) => {
   }
 };
 
-// @route   GET /api/auth/me
-// @access  Private
 const getMe = async (req, res) => {
   return res.status(200).json({
     success: true,

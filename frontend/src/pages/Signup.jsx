@@ -53,6 +53,9 @@ const Signup = () => {
     console.log("response: ", res.data);
 
     localStorage.setItem("token", res.data.token);
+    if (res.data.user) {
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+    }
 
     navigate("/interview/track");
 

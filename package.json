@@ -6,9 +6,14 @@
   "type": "commonjs",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run build:frontend",
+    "dev": "npm run build:frontend && node server.js",
+    "postinstall": "npm --prefix frontend install --no-audit --no-fund",
+    "lint": "node --check server.js && node --check api/[...path].js && node --check config/db.js && node --check controllers/authController.js && node --check controllers/interviewController.js && node --check services/aiService.js && node --check utils/memoryStore.js && node --check utils/defaultRoles.js && node --check models/User.js"
   },
   "dependencies": {
+    "@google/genai": "^3.5.0",
     "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",

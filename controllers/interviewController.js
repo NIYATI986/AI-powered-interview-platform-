@@ -1,13 +1,24 @@
 const InterviewRole = require("../models/InterviewRole");
 const InterviewSession = require("../models/InterviewSession");
 const aiService = require("../services/aiService");
+const { isDbConnected, ensureRolesSeeded } = require("../config/db");
+const memoryStore = require("../utils/memoryStore");
 
 // GET /api/interviews/roles
 const getRoles = async (req, res) => {
   try {
-    const roles = await InterviewRole.find().select(
+    if (!isDbConnected()) {
+      return res.json({ success: true, roles: memoryStore.getRoles() });
+    }
+    let roles = await InterviewRole.find().select(
       "title description category difficulty totalQuestions"
     );
+    if (roles.length === 0) {
+      await ensureRolesSeeded();
+      roles = await InterviewRole.find().select(
+        "title description category difficulty totalQuestions"
+      );
+    }
     res.json({ success: true, roles });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -22,19 +33,31 @@ const startInterview = async (req, res) => {
       return res.status(400).json({ success: false, message: "Role is required" });
     }
 
-    const roleDoc = await InterviewRole.findById(role);
+    const roleDoc = isDbConnected()
+      ? await InterviewRole.findById(role)
+      : memoryStore.findRoleById(role);
+
     if (!roleDoc) {
       return res.status(404).json({ success: false, message: "Role not found" });
     }
 
-    const firstQuestion = await aiService.generateFirstQuestion(roleDoc.title);
+    const firstQuestion = await aiService.generateFirstQuestion(
+      roleDoc.title,
+      roleDoc.difficulty
+    );
 
-    const session = await InterviewSession.create({
-      user: req.user._id,
-      role: roleDoc._id,
-      questions: [{ questionText: firstQuestion }],
-      currentQuestionIndex: 0,
-    });
+    const session = isDbConnected()
+      ? await InterviewSession.create({
+          user: req.user._id,
+          role: roleDoc._id,
+          questions: [{ questionText: firstQuestion }],
+          currentQuestionIndex: 0,
+        })
+      : memoryStore.createSession({
+          userId: req.user._id,
+          roleDoc,
+          firstQuestion,
+        });
 
     res.status(201).json({
       success: true,
@@ -51,10 +74,12 @@ const startInterview = async (req, res) => {
 // GET /api/interviews/:sessionId/question
 const getCurrentQuestion = async (req, res) => {
   try {
-    const session = await InterviewSession.findOne({
-      _id: req.params.sessionId,
-      user: req.user._id,
-    }).populate("role", "totalQuestions title");
+    const session = isDbConnected()
+      ? await InterviewSession.findOne({
+          _id: req.params.sessionId,
+          user: req.user._id,
+        }).populate("role", "totalQuestions title")
+      : memoryStore.findSessionByIdForUser(req.params.sessionId, req.user._id);
 
     if (!session) {
       return res.status(404).json({ success: false, message: "Session not found" });
@@ -81,10 +106,12 @@ const submitAnswer = async (req, res) => {
       return res.status(400).json({ success: false, message: "Answer is required" });
     }
 
-    const session = await InterviewSession.findOne({
-      _id: req.params.sessionId,
-      user: req.user._id,
-    }).populate("role", "title totalQuestions");
+    const session = isDbConnected()
+      ? await InterviewSession.findOne({
+          _id: req.params.sessionId,
+          user: req.user._id,
+        }).populate("role", "title totalQuestions")
+      : memoryStore.findSessionByIdForUser(req.params.sessionId, req.user._id);
 
     if (!session) {
       return res.status(404).json({ success: false, message: "Session not found" });
@@ -112,13 +139,24 @@ const submitAnswer = async (req, res) => {
 
     let sessionEnded = false;
     if (result.nextQuestion && questionNumber < totalQuestions) {
-      session.questions.push({ questionText: result.nextQuestion });
+      session.questions.push({
+        ...(isDbConnected() ? {} : { _id: memoryStore.newId() }),
+        questionText: result.nextQuestion,
+        answerText: null,
+        evaluation: null,
+        score: null,
+        answeredAt: null,
+      });
       session.currentQuestionIndex += 1;
     } else {
       sessionEnded = true;
     }
 
-    await session.save();
+    if (isDbConnected()) {
+      await session.save();
+    } else {
+      session.updatedAt = new Date();
+    }
 
     res.json({
       success: true,
@@ -137,16 +175,17 @@ const submitAnswer = async (req, res) => {
 // POST /api/interviews/:sessionId/finish
 const finishInterview = async (req, res) => {
   try {
-    const session = await InterviewSession.findOne({
-      _id: req.params.sessionId,
-      user: req.user._id,
-    }).populate("role", "title");
+    const session = isDbConnected()
+      ? await InterviewSession.findOne({
+          _id: req.params.sessionId,
+          user: req.user._id,
+        }).populate("role", "title")
+      : memoryStore.findSessionByIdForUser(req.params.sessionId, req.user._id);
 
     if (!session) {
       return res.status(404).json({ success: false, message: "Session not found" });
     }
 
-    // Idempotent: if already completed, don't burn another AI call — return what's stored.
     if (session.status === "completed") {
       return res.json({
         success: true,
@@ -165,7 +204,11 @@ const finishInterview = async (req, res) => {
     session.overallFeedback = overallFeedback;
     session.status = "completed";
     session.completedAt = new Date();
-    await session.save();
+    if (isDbConnected()) {
+      await session.save();
+    } else {
+      session.updatedAt = new Date();
+    }
 
     res.json({ success: true, overallScore, overallFeedback, session });
   } catch (err) {
@@ -176,10 +219,12 @@ const finishInterview = async (req, res) => {
 // GET /api/interviews/:sessionId/progress
 const getProgress = async (req, res) => {
   try {
-    const session = await InterviewSession.findOne({
-      _id: req.params.sessionId,
-      user: req.user._id,
-    }).populate("role", "totalQuestions");
+    const session = isDbConnected()
+      ? await InterviewSession.findOne({
+          _id: req.params.sessionId,
+          user: req.user._id,
+        }).populate("role", "totalQuestions")
+      : memoryStore.findSessionByIdForUser(req.params.sessionId, req.user._id);
 
     if (!session) {
       return res.status(404).json({ success: false, message: "Session not found" });
@@ -199,9 +244,11 @@ const getProgress = async (req, res) => {
 // GET /api/interviews/history
 const getMyInterviews = async (req, res) => {
   try {
-    const sessions = await InterviewSession.find({ user: req.user._id })
-      .populate("role", "title category")
-      .sort({ createdAt: -1 });
+    const sessions = isDbConnected()
+      ? await InterviewSession.find({ user: req.user._id })
+          .populate("role", "title category")
+          .sort({ createdAt: -1 })
+      : memoryStore.getSessionsForUser(req.user._id);
 
     return res.status(200).json({ success: true, sessions });
   } catch (err) {
@@ -213,13 +260,15 @@ const getMyInterviews = async (req, res) => {
   }
 };
 
-// GET /api/interviews/:sessionId (full transcript)
+// GET /api/interviews/:sessionId
 const getSessionDetails = async (req, res) => {
   try {
-    const session = await InterviewSession.findOne({
-      _id: req.params.sessionId,
-      user: req.user._id,
-    }).populate("role", "title category totalQuestions");
+    const session = isDbConnected()
+      ? await InterviewSession.findOne({
+          _id: req.params.sessionId,
+          user: req.user._id,
+        }).populate("role", "title category totalQuestions")
+      : memoryStore.findSessionByIdForUser(req.params.sessionId, req.user._id);
 
     if (!session) {
       return res.status(404).json({ success: false, message: "Session not found" });
@@ -234,16 +283,14 @@ const getSessionDetails = async (req, res) => {
 // GET /api/interviews/dashboard
 const getDashboard = async (req, res) => {
   try {
-    const sessions = await InterviewSession.find({ user: req.user._id }).populate(
-      "role",
-      "title"
-    );
+    const sessions = isDbConnected()
+      ? await InterviewSession.find({ user: req.user._id }).populate("role", "title")
+      : memoryStore.getSessionsForUser(req.user._id);
 
     const totalInterviews = sessions.length;
     const completed = sessions.filter((s) => s.status === "completed");
     const inProgress = sessions.filter((s) => s.status === "in_progress");
 
-    // Bug fix: the schema field is `overallScore`, not `score`
     const scores = completed.map((s) => s.overallScore).filter((s) => s != null);
     const averageScore =
       scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
@@ -259,7 +306,7 @@ const getDashboard = async (req, res) => {
       .slice(0, 5)
       .map((s) => ({
         sessionId: s._id,
-        role: s.role.title,
+        role: s.role?.title || "Unknown Role",
         status: s.status,
         score: s.overallScore,
         createdAt: s.createdAt,
@@ -272,7 +319,7 @@ const getDashboard = async (req, res) => {
       inProgressCount: inProgress.length,
       averageScore,
       bestScore: bestSession ? bestSession.overallScore : null,
-      bestRole: bestSession ? bestSession.role.title : null,
+      bestRole: bestSession ? bestSession.role?.title || null : null,
       recentSessions,
     });
   } catch (err) {
@@ -283,19 +330,20 @@ const getDashboard = async (req, res) => {
 // GET /api/interviews/stats
 const getStatistics = async (req, res) => {
   try {
-    const sessions = await InterviewSession.find({
-      user: req.user._id,
-      status: "completed",
-    }).populate("role", "title");
+    const sessions = isDbConnected()
+      ? await InterviewSession.find({
+          user: req.user._id,
+          status: "completed",
+        }).populate("role", "title")
+      : memoryStore.getSessionsForUser(req.user._id).filter((s) => s.status === "completed");
 
     const roleStats = {};
 
     sessions.forEach((s) => {
-      const roleTitle = s.role.title;
+      const roleTitle = s.role?.title || "Unknown Role";
       if (!roleStats[roleTitle]) {
         roleStats[roleTitle] = { role: roleTitle, attempts: 0, totalScore: 0, bestScore: 0 };
       }
-      // Bug fix: the schema field is `overallScore`, not `score`
       roleStats[roleTitle].attempts += 1;
       roleStats[roleTitle].totalScore += s.overallScore || 0;
       roleStats[roleTitle].bestScore = Math.max(roleStats[roleTitle].bestScore, s.overallScore || 0);
@@ -317,10 +365,12 @@ const getStatistics = async (req, res) => {
 // GET /api/interviews/:sessionId/resume
 const resumeInterview = async (req, res) => {
   try {
-    const session = await InterviewSession.findOne({
-      _id: req.params.sessionId,
-      user: req.user._id,
-    }).populate("role", "totalQuestions");
+    const session = isDbConnected()
+      ? await InterviewSession.findOne({
+          _id: req.params.sessionId,
+          user: req.user._id,
+        }).populate("role", "totalQuestions")
+      : memoryStore.findSessionByIdForUser(req.params.sessionId, req.user._id);
 
     if (!session) {
       return res.status(404).json({ success: false, message: "Session not found" });
@@ -329,8 +379,6 @@ const resumeInterview = async (req, res) => {
       return res.status(400).json({ success: false, message: "Interview already completed" });
     }
 
-    // Bug fix: fields are `questionText`/`answerText`, not `question`/`answer`;
-    // and totalQuestions lives on the populated role, not directly on the session
     const current = session.questions[session.currentQuestionIndex];
 
     res.json({
@@ -349,10 +397,12 @@ const resumeInterview = async (req, res) => {
 // GET /api/interviews/:sessionId/result
 const getResult = async (req, res) => {
   try {
-    const session = await InterviewSession.findOne({
-      _id: req.params.sessionId,
-      user: req.user._id,
-    }).populate("role", "title totalQuestions");
+    const session = isDbConnected()
+      ? await InterviewSession.findOne({
+          _id: req.params.sessionId,
+          user: req.user._id,
+        }).populate("role", "title totalQuestions")
+      : memoryStore.findSessionByIdForUser(req.params.sessionId, req.user._id);
 
     if (!session) {
       return res.status(404).json({ success: false, message: "Session not found" });
@@ -361,8 +411,6 @@ const getResult = async (req, res) => {
       return res.status(400).json({ success: false, message: "Interview not completed yet" });
     }
 
-    // Bug fix: fields are `overallScore`/`overallFeedback` (schema), and totalQuestions
-    // lives on the populated role, not on the session itself
     res.json({
       success: true,
       sessionId: session._id,

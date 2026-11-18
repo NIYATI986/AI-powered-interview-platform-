@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
@@ -10,13 +11,10 @@ const interviewRoutes = require("./routes/interviewRoutes");
 
 const app = express();
 
-// Connect to MongoDB
-connectDB();
-
 // Middleware
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: true,
     credentials: true,
   })
 );
@@ -25,21 +23,62 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Health check
-app.get("/api/health", (req, res) => {
-  res.send("I'm root");
+// Ensure DB connection on serverless requests before hitting API routes
+app.use("/api", async (req, res, next) => {
+  await connectDB();
+  next();
 });
 
-// Routes
+// Health check
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    database: require("./config/db").isDbConnected() ? "mongodb" : "in-memory",
+  });
+});
+
+// API Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/interviews", interviewRoutes);
 
-// 404 handler
-app.use((req, res) => {
+// API 404 handler
+app.use("/api", (req, res) => {
   res.status(404).json({
     success: false,
     message: "Route not found",
   });
+});
+
+// Serve built frontend static files (used locally and in AI Studio)
+const frontendDist = path.join(__dirname, "frontend", "dist");
+app.use(express.static(frontendDist));
+
+app.get("/favicon.ico", (req, res) => {
+  res.sendFile(path.join(frontendDist, "favicon.svg"));
+});
+
+// SPA fallback for React Router
+app.get("*", (req, res) => {
+  res.sendFile(path.join(frontendDist, "index.html"));
+});
+
+// Mongoose offline error handler
+app.use((err, req, res, next) => {
+  if (
+    err.name === "MongooseError" ||
+    err.name === "MongoNetworkError" ||
+    (err.message && err.message.includes("buffering timed out"))
+  ) {
+    console.warn("Database offline — returning fallback response");
+    if (req.method === "GET") {
+      return res.json(req.path.endsWith("s") || req.path.endsWith("s/") ? [] : {});
+    }
+    return res.status(503).json({
+      success: false,
+      error: "Service temporarily unavailable (database offline)",
+    });
+  }
+  next(err);
 });
 
 // Global error handler
@@ -51,8 +90,17 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = 3000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+  await connectDB();
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
+  });
+};
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
